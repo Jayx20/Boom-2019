@@ -2,40 +2,33 @@
 #include <vector>
 #include <memory>
 #include <SDL.h>
+#include <SDL_image.h>
 #include "object.h"
 
 //Screen dimension constants
-const int SCREEN_WIDTH = 640;
-const int SCREEN_HEIGHT = 480;
+const int SCREEN_WIDTH = 1280;
+const int SCREEN_HEIGHT = 720;
+extern const int NUM_SPRITES = 2;
 
 //Function for initializing the Window
 bool init(SDL_Window *&window, SDL_Surface *&surface);
 
-//Function for loading a bitmap and assigning it to a surface
-bool LoadMedia(SDL_Surface *&surface, const char* path);
+//REMOVED Function for loading a bitmap and assigning it to a surface
+//bool LoadMedia(SDL_Surface *&surface, const char* path);
+
+//New function to load a surface to use as a sprite
+SDL_Surface* LoadSurface(const char*  path, SDL_Surface *&surface);
+
 
 //Function to make an SDL_Rect
-SDL_Rect MakeRect(float x, float y, float w, float h) {
-    SDL_Rect madeRect; //stupid name for the new rect we are making
-    madeRect.x = x;
-    madeRect.y = y;
-    madeRect.w = w;
-    madeRect.h = h;
-    return madeRect;
-}
+SDL_Rect MakeRect(float x, float y, float w, float h);
 
-/*
-//Makes a pointer to a generated Rect. The Rect it makes is static so it'll stay even after the function ends.
-// (Whether this is safe or not I got no clue so i'm gonna change this later it was code made quickly so I could sleep)
-SDL_Rect* MakeRectPtr(float x, float y, float w, float h) {
-    static SDL_Rect staticRect = MakeRect(x,y,w,h);
-    SDL_Rect* madeRectPtr = &staticRect;
-    return madeRectPtr;
-}*/
-
+std::shared_ptr<Object> NewObjectPtr(int id, int x, int y);
 //These are only function prototypes, scroll down to the buttom for the actual functions that is just a C++ thing to make it easier to read
 
 enum class SpriteEnum {null=0, dirt};
+
+
 
 int main( int argc, char* args[] ) {
 
@@ -57,20 +50,23 @@ int main( int argc, char* args[] ) {
     //Loading all the images into our spriteArray
     SDL_Surface* nullSprite = NULL;
     SDL_Surface* dirtSprite = NULL;
-    LoadMedia(dirtSprite, "assets/dirt.bmp");
+    dirtSprite = LoadSurface("assets/dirt.png",gameSurface);
+    //LoadMedia(dirtSprite, "assets/dirt.bmp");
+
+    //SDL_Surface* testSurface = NULL;
+    //testSurface = SDL_LoadBMP("assets/dirt.bmp");
 
     //
-    SDL_Surface* spriteArray[2] = {nullSprite, dirtSprite};
+    SDL_Surface* spriteArray[NUM_SPRITES] = {nullSprite, dirtSprite};
     // 0 = Null, 1 = Dirt
 
-    //std::vector<std::shared_ptr<Object>> objectsVector;
-    //I will use smart pointers later so we dont have a massive blob of objects in memory but for now im doing it the lazy way so i can go to sleep
-    ///TODO: FIX!!!
-    std::vector<Object> objectsVector;
-    objectsVector.push_back({1,32,32});
-    objectsVector.push_back({1,64,32});
-    objectsVector.push_back({1,64,64});
+    std::vector<std::shared_ptr<Object>> objectsVector;
+    objectsVector.push_back(NewObjectPtr(1,32,32));
+    objectsVector.push_back(NewObjectPtr(1,64,32));
+    objectsVector.push_back(NewObjectPtr(1,64,64));
     
+    //SDL_Surface* testSurface = IMG_Load("assets/dirt.png");
+    //SDL_Surface* finalTestSurface = SDL_ConvertSurface(testSurface, gameSurface->format, 0);
 
     while(!quit) {
 
@@ -88,13 +84,15 @@ int main( int argc, char* args[] ) {
         //SDL_BlitSurface(image, NULL, gameSurface, NULL );
 
         //
-        for(Object object : objectsVector) {
-            SDL_Rect objRect = MakeRect(object.x,object.y,32,32);
+        for(std::shared_ptr<Object> object : objectsVector) {
+            SDL_Rect objRect = MakeRect(object->x,object->y,32,32);
 
-            SDL_BlitSurface(spriteArray[object.spriteId], NULL, gameSurface, &objRect);
+            SDL_BlitSurface(spriteArray[object->spriteId], NULL, gameSurface, &objRect);
             
+
             //SDL_BlitSurface(spriteArray[object.spriteId], NULL, gameSurface, NULL);
         }
+        //SDL_BlitSurface(finalTestSurface,NULL,gameSurface,NULL);
 
         //Updates the screen
         SDL_UpdateWindowSurface(gameWindow);
@@ -130,16 +128,24 @@ bool init(SDL_Window *&window, SDL_Surface *&surface) {
         //actually creating the game window
         window = SDL_CreateWindow("Boom 2019", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
         
-        if (window == NULL) { printf("Window creation failed! SDL_Error:%s\n", SDL_GetError() ); success = false; }
-        else {
-            surface = SDL_GetWindowSurface(window);
+        if (window == NULL) {
+            printf("Window creation failed! SDL_Error:%s\n", SDL_GetError() ); success = false;
         }
-
+        else {
+            //Initialize PNG loading
+            int imgFlags = IMG_INIT_PNG;
+            if( !( IMG_Init(imgFlags) & imgFlags )) {
+                printf( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() ); success = false;
+            }
+            else {
+                surface = SDL_GetWindowSurface(window);
+            }
+        }
     }
     return success;
 }
 
-bool LoadMedia(SDL_Surface *&surface, const char* path) {
+/*bool LoadMedia(SDL_Surface *&surface, const char* path) {
     bool success = true;
 
     surface = SDL_LoadBMP(path);
@@ -147,4 +153,38 @@ bool LoadMedia(SDL_Surface *&surface, const char* path) {
     if(surface == NULL) {success = false; printf("Failed to Load Image. SDL_Error: %s\n", SDL_GetError());}
 
     return success;
+}*/
+
+SDL_Surface* LoadSurface(const char* path, SDL_Surface *&surface) {
+    SDL_Surface* finalSurface = NULL;
+
+    //Load image
+    SDL_Surface* loadedSurface = IMG_Load(path);
+    if (loadedSurface = NULL) {
+        printf("Failed to load surface at %s. Error: %s",path,IMG_GetError());
+    }
+    else {
+        finalSurface = SDL_ConvertSurface(loadedSurface, surface->format, 0);
+        if (finalSurface = NULL) {
+            printf("Failed to optimize surface from %s. Error: %s",path,IMG_GetError());
+        }
+
+        SDL_FreeSurface(loadedSurface);
+    }
+    return finalSurface;
+}
+
+SDL_Rect MakeRect(float x, float y, float w, float h) {
+    SDL_Rect madeRect; //stupid name for the new rect we are making
+    madeRect.x = x;
+    madeRect.y = y;
+    madeRect.w = w;
+    madeRect.h = h;
+    return madeRect;
+}
+
+std::shared_ptr<Object> NewObjectPtr(int id, int x, int y) {
+    Object* ptr = new Object(id, x, y);
+    std::shared_ptr<Object> sharedPtr(ptr);
+    return sharedPtr;
 }

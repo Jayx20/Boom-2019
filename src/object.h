@@ -4,10 +4,10 @@
 class Object {
 public:
     int spriteId;
-    float x; //position
-    float y; //position
+    int x; //position
+    int y; //position
 
-    Object(int newSpriteId, float newX, float newY);
+    Object(int newSpriteId, int newX, int newY);
 };
 
 #endif
